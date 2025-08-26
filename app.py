@@ -2,9 +2,38 @@ import streamlit as st
 import pandas as pd
 import io
 import re
+from datetime import datetime
 from typing import List
 
-def clean_phone_number(phone) -> str:
+def generate_output_filename(df: pd.DataFrame) -> str:
+    """
+    Generate output filename in format: YYYYMMDD_CustomField_Mobiles.csv
+    
+    Args:
+        df: Original DataFrame to extract custom field from
+        
+    Returns:
+        Generated filename string
+    """
+    # Get current date in YYYYMMDD format
+    date_str = datetime.now().strftime("%Y%m%d")
+    
+    # Try to get custom field value from first row
+    custom_field = ""
+    if "Input Custom Field 1" in df.columns:
+        first_custom_field = df["Input Custom Field 1"].dropna().iloc[0] if len(df["Input Custom Field 1"].dropna()) > 0 else ""
+        if first_custom_field:
+            # Clean the custom field for filename (remove invalid characters)
+            custom_field = re.sub(r'[<>:"/\\|?*]', '', str(first_custom_field))
+            custom_field = custom_field.replace(' ', '_')  # Replace spaces with underscores
+    
+    # Generate filename
+    if custom_field:
+        filename = f"{date_str}_{custom_field}_Mobiles.csv"
+    else:
+        filename = f"{date_str}_Mobiles.csv"
+    
+    return filename
     """
     Extract only digits from phone number and ensure it's exactly 10 digits.
     
@@ -137,6 +166,10 @@ def validate_input_file(df: pd.DataFrame) -> bool:
         st.error(f"❌ Missing required columns: {missing_columns}")
         return False
     
+    # Check for Input Custom Field 1 (optional but recommended)
+    if "Input Custom Field 1" not in df.columns:
+        st.warning("⚠️ 'Input Custom Field 1' column not found. Filename will use date only.")
+    
     return True
 
 def main():
@@ -215,9 +248,8 @@ def main():
                     processed_df.to_csv(csv_buffer, index=False, header=False)  # No header, just phone numbers
                     csv_data = csv_buffer.getvalue()
                     
-                    # Generate filename
-                    original_filename = uploaded_file.name.rsplit('.', 1)[0]
-                    output_filename = f"{original_filename}_mobile_numbers.csv"
+                    # Generate filename using date + custom field + "Mobiles"
+                    output_filename = generate_output_filename(df)
                     
                     st.download_button(
                         label="📥 Download Mobile Phone Numbers CSV",
@@ -226,6 +258,9 @@ def main():
                         mime="text/csv",
                         use_container_width=True
                     )
+                    
+                    # Show filename info
+                    st.info(f"📁 **Filename**: `{output_filename}`")
                     
                     # Show sample of what will be downloaded
                     st.info(f"📄 **Download Preview:** CSV file will contain {len(processed_df)} phone numbers (digits only, no headers)")
