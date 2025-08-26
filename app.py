@@ -5,35 +5,7 @@ import re
 from datetime import datetime
 from typing import List
 
-def generate_output_filename(df: pd.DataFrame) -> str:
-    """
-    Generate output filename in format: YYYYMMDD_CustomField_Mobiles.csv
-    
-    Args:
-        df: Original DataFrame to extract custom field from
-        
-    Returns:
-        Generated filename string
-    """
-    # Get current date in YYYYMMDD format
-    date_str = datetime.now().strftime("%Y%m%d")
-    
-    # Try to get custom field value from first row
-    custom_field = ""
-    if "Input Custom Field 1" in df.columns:
-        first_custom_field = df["Input Custom Field 1"].dropna().iloc[0] if len(df["Input Custom Field 1"].dropna()) > 0 else ""
-        if first_custom_field:
-            # Clean the custom field for filename (remove invalid characters)
-            custom_field = re.sub(r'[<>:"/\\|?*]', '', str(first_custom_field))
-            custom_field = custom_field.replace(' ', '_')  # Replace spaces with underscores
-    
-    # Generate filename
-    if custom_field:
-        filename = f"{date_str}_{custom_field}_Mobiles.csv"
-    else:
-        filename = f"{date_str}_Mobiles.csv"
-    
-    return filename
+def clean_phone_number(phone) -> str:
     """
     Extract only digits from phone number and ensure it's exactly 10 digits.
     
@@ -67,6 +39,36 @@ def generate_output_filename(df: pd.DataFrame) -> str:
     else:
         # Invalid length, return empty
         return ""
+
+def generate_output_filename(df: pd.DataFrame) -> str:
+    """
+    Generate output filename in format: YYYYMMDD_CustomField_Mobiles.csv
+    
+    Args:
+        df: Original DataFrame to extract custom field from
+        
+    Returns:
+        Generated filename string
+    """
+    # Get current date in YYYYMMDD format
+    date_str = datetime.now().strftime("%Y%m%d")
+    
+    # Try to get custom field value from first row
+    custom_field = ""
+    if "Input Custom Field 1" in df.columns:
+        first_custom_field = df["Input Custom Field 1"].dropna().iloc[0] if len(df["Input Custom Field 1"].dropna()) > 0 else ""
+        if first_custom_field:
+            # Clean the custom field for filename (remove invalid characters)
+            custom_field = re.sub(r'[<>:"/\\|?*]', '', str(first_custom_field))
+            custom_field = custom_field.replace(' ', '_')  # Replace spaces with underscores
+    
+    # Generate filename
+    if custom_field:
+        filename = f"{date_str}_{custom_field}_Mobiles.csv"
+    else:
+        filename = f"{date_str}_Mobiles.csv"
+    
+    return filename
 
 def process_phone_data(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -145,7 +147,7 @@ def process_phone_data(df: pd.DataFrame) -> pd.DataFrame:
     final_df = mobile_df[['Column A']].copy()
     st.info(f"✅ Step 5: Removed phone type column (Column B)")
     
-    # Step 6: Clean phone numbers to digits only and ensure 10 digits
+    # Step 6: Clean phone numbers to exactly 10 digits
     final_df['Column A'] = final_df['Column A'].apply(clean_phone_number)
     
     # Remove any invalid phone numbers after cleaning
