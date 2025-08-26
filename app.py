@@ -4,23 +4,40 @@ import io
 import re
 from typing import List
 
-def clean_phone_number(phone: str) -> str:
+def clean_phone_number(phone) -> str:
     """
-    Extract only digits from phone number.
+    Extract only digits from phone number and ensure it's exactly 10 digits.
     
     Args:
         phone: Phone number (may be string or number)
         
     Returns:
-        String containing only digits
+        String containing exactly 10 digits, or empty string if invalid
     """
     if pd.isna(phone) or phone == "":
         return ""
     
     # Convert to string and extract digits only
-    phone_str = str(phone)
+    if isinstance(phone, (int, float)):
+        # For numeric types, convert to int first to avoid scientific notation issues
+        phone_str = str(int(phone))
+    else:
+        phone_str = str(phone)
+    
     digits_only = re.sub(r'\D', '', phone_str)
-    return digits_only
+    
+    # Ensure we have exactly 10 digits (US phone numbers)
+    if len(digits_only) == 10:
+        return digits_only
+    elif len(digits_only) == 11 and digits_only.startswith('1'):
+        # Remove leading 1 (US country code)
+        return digits_only[1:]
+    elif len(digits_only) == 11 and digits_only.endswith('0'):
+        # Remove trailing 0 if it's 11 digits (our bug case)
+        return digits_only[:-1]
+    else:
+        # Invalid length, return empty
+        return ""
 
 def process_phone_data(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -99,13 +116,13 @@ def process_phone_data(df: pd.DataFrame) -> pd.DataFrame:
     final_df = mobile_df[['Column A']].copy()
     st.info(f"✅ Step 5: Removed phone type column (Column B)")
     
-    # Step 6: Clean phone numbers to digits only
+    # Step 6: Clean phone numbers to digits only and ensure 10 digits
     final_df['Column A'] = final_df['Column A'].apply(clean_phone_number)
     
-    # Remove any empty phone numbers after cleaning
+    # Remove any invalid phone numbers after cleaning
     final_df = final_df[final_df['Column A'] != ""].copy()
     
-    st.info(f"✅ Step 6: Cleaned phone numbers to digits only - final count: {len(final_df)}")
+    st.info(f"✅ Step 6: Cleaned phone numbers to exactly 10 digits - final count: {len(final_df)}")
     
     return final_df
 
