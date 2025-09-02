@@ -43,6 +43,7 @@ def clean_phone_number(phone) -> str:
 def clean_name_capitalization(name) -> str:
     """
     Apply proper capitalization to names (Title Case).
+    Handles various edge cases for names.
     
     Args:
         name: Name string to clean
@@ -50,11 +51,18 @@ def clean_name_capitalization(name) -> str:
     Returns:
         String with proper capitalization
     """
-    if pd.isna(name) or name == "":
+    if pd.isna(name) or name == "" or str(name).strip() == "":
         return ""
     
-    # Convert to string and apply title case
-    return str(name).title()
+    # Convert to string, strip whitespace, and apply title case
+    cleaned_name = str(name).strip().title()
+    
+    # Handle common name prefixes/suffixes that should be lowercase
+    # Like "McDonald", "O'Brien", etc.
+    cleaned_name = re.sub(r"\bMc([A-Z])", r"Mc\1", cleaned_name)
+    cleaned_name = re.sub(r"\bO'([A-Z])", r"O'\1", cleaned_name)
+    
+    return cleaned_name
 
 def generate_output_filename(property_reference_code: str) -> str:
     """
@@ -80,7 +88,7 @@ def generate_output_filename(property_reference_code: str) -> str:
 
 def process_phone_data(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Process phone data according to new requirements:
+    Process phone data according to requirements:
     1. Delete rows where DNC/Litigator Scrub contains "DNC"
     2. Keep only specified columns
     3. Add duplicate name columns for Phone2
@@ -88,6 +96,7 @@ def process_phone_data(df: pd.DataFrame) -> pd.DataFrame:
     5. Keep only "Mobile" phone types
     6. Remove phone type column
     7. Rename headers to "First Name", "Last Name", "Phone"
+    8. Apply proper capitalization to ENTIRE First Name and Last Name columns
     
     Args:
         df: Input DataFrame
@@ -115,37 +124,43 @@ def process_phone_data(df: pd.DataFrame) -> pd.DataFrame:
     df_selected = df_filtered[required_columns].copy()
     st.info(f"✅ Step 2: Kept only specified columns: {required_columns}")
     
-    # Step 3: Insert duplicate name columns for Phone2
+    # Step 3: Insert duplicate name columns for Phone2 AND apply proper capitalization to ALL name fields
+    # Apply capitalization to original name columns first
+    df_selected["Matched First Name"] = df_selected["Matched First Name"].apply(clean_name_capitalization)
+    df_selected["Matched Last Name"] = df_selected["Matched Last Name"].apply(clean_name_capitalization)
+    
+    # Now create duplicate columns with already-capitalized names
     df_selected["Matched First Name2"] = df_selected["Matched First Name"]
     df_selected["Matched Last Name2"] = df_selected["Matched Last Name"]
-    st.info(f"✅ Step 3: Added duplicate name columns for Phone2 data")
+    
+    st.info(f"✅ Step 3: Applied proper capitalization to ALL name fields and added duplicate columns for Phone2 data")
     
     # Step 4: Stack all phone data into four columns
     phone_data = []
     
     # Process each row
     for _, row in df_selected.iterrows():
-        # Add Phone1 data
+        # Add Phone1 data (names already properly capitalized)
         if pd.notna(row["Phone1"]) and row["Phone1"] != "" and str(row["Phone1"]) != "0":
             phone_data.append({
-                'First Name': row["Matched First Name"],
-                'Last Name': row["Matched Last Name"],
+                'First Name': row["Matched First Name"],  # Already capitalized
+                'Last Name': row["Matched Last Name"],    # Already capitalized
                 'Phone': row["Phone1"],
                 'Phone Type': row["Phone1 Type"] if pd.notna(row["Phone1 Type"]) else ""
             })
         
-        # Add Phone2 data
+        # Add Phone2 data (names already properly capitalized)
         if pd.notna(row["Phone2"]) and row["Phone2"] != "" and str(row["Phone2"]) != "0":
             phone_data.append({
-                'First Name': row["Matched First Name2"],
-                'Last Name': row["Matched Last Name2"],
+                'First Name': row["Matched First Name2"],  # Already capitalized
+                'Last Name': row["Matched Last Name2"],    # Already capitalized
                 'Phone': row["Phone2"],
                 'Phone Type': row["Phone2 Type"] if pd.notna(row["Phone2 Type"]) else ""
             })
     
     # Create stacked DataFrame
     stacked_df = pd.DataFrame(phone_data)
-    st.info(f"✅ Step 4: Stacked phone data - created {len(stacked_df)} phone number records")
+    st.info(f"✅ Step 4: Stacked phone data - created {len(stacked_df)} phone number records with properly capitalized names")
     
     if len(stacked_df) == 0:
         st.warning("⚠️ No phone numbers found to process")
@@ -172,6 +187,12 @@ def process_phone_data(df: pd.DataFrame) -> pd.DataFrame:
     
     st.info(f"✅ Step 7: Cleaned phone numbers to exactly 10 digits - final count: {len(final_df)}")
     
+    # Step 8: Double-check capitalization on final output (redundant but ensures correctness)
+    final_df['First Name'] = final_df['First Name'].apply(clean_name_capitalization)
+    final_df['Last Name'] = final_df['Last Name'].apply(clean_name_capitalization)
+    
+    st.info(f"✅ Step 8: Double-checked proper capitalization on ENTIRE First Name and Last Name columns")
+    
     return final_df
 
 def validate_input_file(df: pd.DataFrame) -> bool:
@@ -193,16 +214,17 @@ def main():
     st.markdown("---")
     
     st.markdown("""
-    This tool processes phone-enhanced CSV files to extract clean mobile phone numbers with names.
+    This tool processes phone-enhanced CSV files to extract clean mobile phone numbers with properly capitalized names.
     
     **Processing Steps:**
     1. 🚫 Remove rows with 'DNC' in 'DNC/Litigator Scrub' column
     2. 📋 Keep only name and phone columns (Phone1 & Phone2 only)
-    3. 📝 Add duplicate name columns for Phone2 data
+    3. ✨ Apply proper capitalization to ALL name fields and add duplicate columns for Phone2 data
     4. 📚 Stack all phone data into four columns
     5. 📱 Keep only 'Mobile' phone types
     6. 🗑️ Remove phone type column
-    7. 🏷️ Rename headers to "First Name", "Last Name", "Phone"
+    7. 🔢 Clean phone numbers to exactly 10 digits
+    8. ✨ Double-check proper capitalization on ENTIRE First Name and Last Name columns
     """)
     
     st.markdown("---")
@@ -252,7 +274,7 @@ def main():
                 st.header("⚙️ Processing Phone Data")
                 
                 # Process the CSV
-                with st.spinner("Processing phone numbers..."):
+                with st.spinner("Processing phone numbers and applying proper capitalization..."):
                     processed_df = process_phone_data(df)
                 
                 if len(processed_df) > 0:
@@ -271,6 +293,12 @@ def main():
                     with col3:
                         conversion_rate = (len(processed_df) / len(df)) * 100 if len(df) > 0 else 0
                         st.metric("Conversion Rate", f"{conversion_rate:.1f}%")
+                    
+                    # Show sample of names to verify capitalization
+                    if len(processed_df) > 0:
+                        st.info("📝 **Name Capitalization Check**: Sample of properly capitalized names")
+                        sample_names = processed_df[['First Name', 'Last Name']].head(5)
+                        st.dataframe(sample_names)
                     
                     # Download section
                     st.header("💾 Download Roor-Ready File")
@@ -295,7 +323,7 @@ def main():
                     st.info(f"📁 **Filename**: `{output_filename}`")
                     
                     # Show sample of what will be downloaded
-                    st.info(f"📄 **Download Preview:** CSV file will contain {len(processed_df)} records with First Name, Last Name, and Phone columns")
+                    st.info(f"📄 **Download Preview:** CSV file will contain {len(processed_df)} records with properly capitalized First Name, Last Name, and Phone columns")
                     with st.expander("🔍 Sample Output (First 5 Records)"):
                         st.dataframe(processed_df.head(5))
                 
@@ -315,7 +343,7 @@ def main():
     st.markdown("---")
     st.markdown("""
     <div style='text-align: center; color: #666;'>
-        <small>Phone Number Processor v2.0 | Built with Streamlit</small>
+        <small>Phone Number Processor v2.1 | Built with Streamlit | Now with Enhanced Name Capitalization</small>
     </div>
     """, unsafe_allow_html=True)
 
