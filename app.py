@@ -40,6 +40,22 @@ def clean_phone_number(phone) -> str:
         # Invalid length, return empty
         return ""
 
+def clean_name_capitalization(name) -> str:
+    """
+    Apply proper capitalization to names (Title Case).
+    
+    Args:
+        name: Name string to clean
+        
+    Returns:
+        String with proper capitalization
+    """
+    if pd.isna(name) or name == "":
+        return ""
+    
+    # Convert to string and apply title case
+    return str(name).title()
+
 def generate_output_filename(property_reference_code: str) -> str:
     """
     Generate output filename in format: YYYYMMDD_PropertyReferenceCode_Mobiles_Roor-Ready.csv
