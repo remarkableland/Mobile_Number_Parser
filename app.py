@@ -412,9 +412,9 @@ def main():
                             file_name=filename,
                             mime="text/csv",
                             use_container_width=True,
-                            key="phone_only_single"
+                            key="slybroadcast_single"
                         )
-                        st.info(f"📁 **Phone File**: `{filename}` ({len(phone_numbers)} numbers)")
+                        st.info(f"📁 **Slybroadcast File**: `{filename}` ({len(phone_numbers)} numbers)")
                     
                     else:
                         # Multiple files - create ZIP
