@@ -66,7 +66,7 @@ def clean_name_capitalization(name) -> str:
 
 def generate_output_filename(property_reference_code: str) -> str:
     """
-    Generate output filename in format: YYYYMMDD_PropertyReferenceCode_Mobiles_Roor-Ready.csv
+    Generate output filename in format: YYYYMMDD_PropertyReferenceCode_Mobiles_Mobile-Ready.csv
     
     Args:
         property_reference_code: User-provided property reference code
@@ -82,7 +82,7 @@ def generate_output_filename(property_reference_code: str) -> str:
     clean_code = clean_code.replace(' ', '_')  # Replace spaces with underscores
     
     # Generate filename
-    filename = f"{date_str}_{clean_code}_Mobiles_Roor-Ready.csv"
+    filename = f"{date_str}_{clean_code}_Mobiles_Mobile-Ready.csv"
     
     return filename
 
@@ -301,7 +301,7 @@ def main():
                         st.dataframe(sample_names)
                     
                     # Download section
-                    st.header("💾 Download Roor-Ready File")
+                    st.header("💾 Download Mobile-Ready File")
                     
                     # Convert DataFrame to CSV with headers
                     csv_buffer = io.StringIO()
@@ -312,7 +312,7 @@ def main():
                     output_filename = generate_output_filename(property_reference_code)
                     
                     st.download_button(
-                        label="📥 Download Roor-Ready CSV",
+                        label="📥 Download Mobile-Ready CSV",
                         data=csv_data,
                         file_name=output_filename,
                         mime="text/csv",
