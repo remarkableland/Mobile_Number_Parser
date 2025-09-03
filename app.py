@@ -66,7 +66,7 @@ def clean_name_capitalization(name) -> str:
 
 def generate_output_filename(property_reference_code: str) -> str:
     """
-    Generate output filename in format: YYYYMMDD_PropertyReferenceCode_Mobiles_Mobile-Ready.csv
+    Generate output filename in format: YYYYMMDD_PropertyReferenceCode_Mobile-Ready.csv
     
     Args:
         property_reference_code: User-provided property reference code
@@ -82,7 +82,7 @@ def generate_output_filename(property_reference_code: str) -> str:
     clean_code = clean_code.replace(' ', '_')  # Replace spaces with underscores
     
     # Generate filename
-    filename = f"{date_str}_{clean_code}_Mobiles_Mobile-Ready.csv"
+    filename = f"{date_str}_{clean_code}_Mobile-Ready.csv"
     
     return filename
 
