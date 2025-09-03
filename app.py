@@ -4,6 +4,7 @@ import io
 import re
 from datetime import datetime
 from typing import List
+import zipfile
 
 def clean_phone_number(phone) -> str:
     """
@@ -64,12 +65,13 @@ def clean_name_capitalization(name) -> str:
     
     return cleaned_name
 
-def generate_output_filename(property_reference_code: str) -> str:
+def generate_output_filename(property_reference_code: str, file_type: str = "mobile-ready") -> str:
     """
     Generate output filename in format: YYYYMMDD_PropertyReferenceCode_Mobile-Ready.csv
     
     Args:
         property_reference_code: User-provided property reference code
+        file_type: Type of file being generated ("mobile-ready" or other)
         
     Returns:
         Generated filename string
@@ -81,10 +83,70 @@ def generate_output_filename(property_reference_code: str) -> str:
     clean_code = re.sub(r'[<>:"/\\|?*]', '', str(property_reference_code))
     clean_code = clean_code.replace(' ', '_')  # Replace spaces with underscores
     
-    # Generate filename
-    filename = f"{date_str}_{clean_code}_Mobile-Ready.csv"
+    # Generate filename based on type
+    if file_type == "mobile-ready":
+        filename = f"{date_str}_{clean_code}_Mobile-Ready.csv"
+    else:
+        filename = f"{date_str}_{clean_code}_Mobile-Ready.csv"
     
     return filename
+
+def generate_phone_only_filename(property_reference_code: str, start_num: int, end_num: int) -> str:
+    """
+    Generate filename for phone-only files with position range.
+    Format: YYYYMMDD_PropertyReferenceCode_Mobile-Ready_START-END.csv
+    
+    Args:
+        property_reference_code: User-provided property reference code
+        start_num: Starting number in range
+        end_num: Ending number in range
+        
+    Returns:
+        Generated filename string
+    """
+    # Get current date in YYYYMMDD format
+    date_str = datetime.now().strftime("%Y%m%d")
+    
+    # Clean the property reference code for filename (remove invalid characters)
+    clean_code = re.sub(r'[<>:"/\\|?*]', '', str(property_reference_code))
+    clean_code = clean_code.replace(' ', '_')  # Replace spaces with underscores
+    
+    # Generate filename with range
+    filename = f"{date_str}_{clean_code}_Mobile-Ready_{start_num}-{end_num}.csv"
+    
+    return filename
+
+def create_phone_only_files(phone_numbers: List[str], property_reference_code: str) -> dict:
+    """
+    Create multiple CSV files with phone numbers only, each containing max 250 numbers.
+    
+    Args:
+        phone_numbers: List of phone numbers
+        property_reference_code: Property reference code for filename
+        
+    Returns:
+        Dictionary with filename as key and CSV content as value
+    """
+    files_created = {}
+    batch_size = 250
+    
+    for i in range(0, len(phone_numbers), batch_size):
+        batch = phone_numbers[i:i + batch_size]
+        start_num = i
+        end_num = min(i + len(batch) - 1, len(phone_numbers) - 1)
+        
+        # Create DataFrame with phone numbers only (no header)
+        phone_df = pd.DataFrame(batch, columns=['Phone'])
+        
+        # Convert to CSV without header
+        csv_content = phone_df.to_csv(index=False, header=False)
+        
+        # Generate filename
+        filename = generate_phone_only_filename(property_reference_code, start_num, end_num)
+        
+        files_created[filename] = csv_content
+    
+    return files_created
 
 def process_phone_data(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -225,6 +287,10 @@ def main():
     6. 🗑️ Remove phone type column
     7. 🔢 Clean phone numbers to exactly 10 digits
     8. ✨ Double-check proper capitalization on ENTIRE First Name and Last Name columns
+    
+    **Output Files:**
+    - **Mobile-Ready CSV**: Complete data with names and phone numbers (with headers)
+    - **Phone-Only CSV Files**: Phone numbers only (no headers), split into files of 250 numbers each
     """)
     
     st.markdown("---")
@@ -301,7 +367,10 @@ def main():
                         st.dataframe(sample_names)
                     
                     # Download section
-                    st.header("💾 Download Mobile-Ready File")
+                    st.header("💾 Download Files")
+                    
+                    # File 1: Complete Mobile-Ready CSV with headers
+                    st.subheader("📄 File 1: Complete Mobile-Ready CSV")
                     
                     # Convert DataFrame to CSV with headers
                     csv_buffer = io.StringIO()
@@ -312,20 +381,81 @@ def main():
                     output_filename = generate_output_filename(property_reference_code)
                     
                     st.download_button(
-                        label="📥 Download Mobile-Ready CSV",
+                        label="📥 Download Mobile-Ready CSV (with headers)",
                         data=csv_data,
                         file_name=output_filename,
                         mime="text/csv",
-                        use_container_width=True
+                        use_container_width=True,
+                        key="mobile_ready_download"
                     )
                     
                     # Show filename info
                     st.info(f"📁 **Filename**: `{output_filename}`")
                     
+                    # File 2: Phone-only files (no headers, split into 250-number batches)
+                    st.subheader("📱 File 2: Phone-Only Files (No Headers)")
+                    
+                    # Extract phone numbers only
+                    phone_numbers = processed_df['Phone'].tolist()
+                    
+                    # Create phone-only files
+                    phone_files = create_phone_only_files(phone_numbers, property_reference_code)
+                    
+                    st.info(f"📊 **Phone Files Created**: {len(phone_files)} files containing {len(phone_numbers)} total phone numbers")
+                    
+                    if len(phone_files) == 1:
+                        # Single file download
+                        filename, csv_content = list(phone_files.items())[0]
+                        st.download_button(
+                            label=f"📥 Download {filename}",
+                            data=csv_content,
+                            file_name=filename,
+                            mime="text/csv",
+                            use_container_width=True,
+                            key="phone_only_single"
+                        )
+                        st.info(f"📁 **Phone File**: `{filename}` ({len(phone_numbers)} numbers)")
+                    
+                    else:
+                        # Multiple files - create ZIP
+                        zip_buffer = io.BytesIO()
+                        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+                            for filename, csv_content in phone_files.items():
+                                zip_file.writestr(filename, csv_content)
+                        
+                        zip_buffer.seek(0)
+                        
+                        # Generate ZIP filename
+                        date_str = datetime.now().strftime("%Y%m%d")
+                        clean_code = re.sub(r'[<>:"/\\|?*]', '', str(property_reference_code))
+                        clean_code = clean_code.replace(' ', '_')
+                        zip_filename = f"{date_str}_{clean_code}_Phone-Only-Files.zip"
+                        
+                        st.download_button(
+                            label=f"📦 Download All Phone Files ({len(phone_files)} files in ZIP)",
+                            data=zip_buffer.getvalue(),
+                            file_name=zip_filename,
+                            mime="application/zip",
+                            use_container_width=True,
+                            key="phone_only_zip"
+                        )
+                        
+                        # Show individual file info
+                        with st.expander("📋 Phone File Details"):
+                            for i, (filename, _) in enumerate(phone_files.items()):
+                                start_num = i * 250
+                                end_num = min(start_num + 249, len(phone_numbers) - 1)
+                                actual_count = end_num - start_num + 1
+                                st.write(f"• `{filename}` - {actual_count} phone numbers")
+                    
                     # Show sample of what will be downloaded
-                    st.info(f"📄 **Download Preview:** CSV file will contain {len(processed_df)} records with properly capitalized First Name, Last Name, and Phone columns")
-                    with st.expander("🔍 Sample Output (First 5 Records)"):
+                    with st.expander("🔍 Sample Output Files"):
+                        st.write("**Mobile-Ready CSV Sample (First 5 Records with Headers):**")
                         st.dataframe(processed_df.head(5))
+                        
+                        st.write("**Phone-Only File Sample (First 5 Numbers, No Headers):**")
+                        sample_phones = pd.DataFrame(phone_numbers[:5], columns=['Phone'])
+                        st.text(sample_phones.to_csv(index=False, header=False).strip())
                 
                 else:
                     st.error("❌ No mobile phone numbers found after processing. Check your data and try again.")
@@ -343,7 +473,7 @@ def main():
     st.markdown("---")
     st.markdown("""
     <div style='text-align: center; color: #666;'>
-        <small>Phone Number Processor v2.1 | Built with Streamlit | Now with Enhanced Name Capitalization</small>
+        <small>Phone Number Processor v2.2 | Built with Streamlit | Now with Dual Export Options</small>
     </div>
     """, unsafe_allow_html=True)
 
