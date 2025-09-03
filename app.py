@@ -289,8 +289,8 @@ def main():
     8. ✨ Double-check proper capitalization on ENTIRE First Name and Last Name columns
     
     **Output Files:**
-    - **Mobile-Ready CSV**: Complete data with names and phone numbers (with headers)
-    - **Phone-Only CSV Files**: Phone numbers only (no headers), split into files of 250 numbers each
+    - **Roor-Ready CSV**: Complete data with names and phone numbers (with headers)
+    - **Slybroadcast-Ready CSV Files**: Phone numbers only (no headers), split into groups of 250 numbers each (Group A, Group B, etc.)
     """)
     
     st.markdown("---")
